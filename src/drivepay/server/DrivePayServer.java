@@ -28,6 +28,9 @@ import java.util.Date;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import SerializedObjects.coreObjects.Sconto;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.concurrent.TimeUnit;
 /**
  *
  * @author Christian
@@ -39,6 +42,7 @@ public class DrivePayServer {
      */
     public static void main(String[] args) {
         System.out.println("Inizializzazione server...");
+ 
         try {
             Server server = new Server(9696);
             Thread x = new Thread(server);
@@ -67,10 +71,12 @@ public class DrivePayServer {
             
             ScontiCore.Initialize();
             //ScontiCore.addSconto(new Sconto("ABCD", 15));
-
-
-
-            /*
+            /*try {
+                VeicoliCore.terminaNoleggio(new Utente(798379828, "ciao", "ciao"));
+                } catch (Exception ex) {
+                System.out.println(ex);
+            } */
+                /*
                 TestClient testClient = new TestClient("127.0.0.1", 9696);
                 testClient.SendCommand(new Command(CommandType.HANDSHAKE_REQUEST, ""));
                 Documento d = new Documento(1, "jpg");
@@ -91,7 +97,8 @@ public class DrivePayServer {
                 u.setInfoUtente(iu);
                 
                 System.out.println(DB.addUserToDB(u));
-            */        
+                */        
+           
         } catch (IOException ex) {
             System.out.println(ex);
         }

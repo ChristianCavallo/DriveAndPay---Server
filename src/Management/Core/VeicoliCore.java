@@ -7,6 +7,7 @@ package Management.Core;
 
 import Management.Database.DB;
 import SerializedObjects.UserObjects.Utente;
+import SerializedObjects.coreObjects.Fattura;
 import SerializedObjects.coreObjects.Noleggio;
 import SerializedObjects.coreObjects.Sconto;
 import SerializedObjects.coreObjects.Veicolo;
@@ -14,6 +15,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -25,7 +27,8 @@ public class VeicoliCore {
 
     public static ArrayList<Veicolo> veicoli;
     private static ArrayList<Noleggio> noleggiRichiesti;
-
+    
+    public static double TARIFFA = 0.15;
     
     public static void Initialize(){
         veicoli = DB.fetchVeicoli();
@@ -74,6 +77,39 @@ public class VeicoliCore {
             }
         }
         return false;
+    }
+    
+    public static Boolean terminaNoleggio(Utente u) throws Exception{
+        Noleggio n = DB.NoleggiAperti(u); //riottengo il noleggio dal DB (Sicurezza)
+        if(n != null){
+            //TODO: check dello stato del veicolo
+            
+            //Imposto la fine del noleggio
+            n.setFine(new Date());
+            
+            //Creo la fattura
+            Fattura f = new Fattura(TARIFFA);
+            if(n.getScontoCorrente() != null){
+                f.setPercentualeSconto(n.getScontoCorrente().getPerc_sconto());
+                System.out.println("Sconto applicato");
+            }
+
+            Long diff = TimeUnit.MILLISECONDS.toSeconds(n.getFine().getTime() - n.getInizio().getTime());
+            double minutes = (double) Math.round(diff.doubleValue() / 60 * 100) / 100;
+            f.setDurata(minutes);
+            
+            n.setFatturaCorrente(f);
+            
+            //Aggiorno il database
+            if(DB.terminaNoleggio(n)){
+                 return true;
+            }
+            
+        } else {
+            throw new Exception("Nessun noleggio in corso per l'utente " + u.getId());
+        }
+        
+        return false;   
     }
     
     public static Noleggio richiediNoleggio(Utente u){

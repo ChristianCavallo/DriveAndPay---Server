@@ -9,11 +9,13 @@ import SerializedObjects.Command;
 import Connection.Connection;
 import Management.Core.ScontiCore;
 import Management.Core.VeicoliCore;
+import Management.Database.DB;
 import Management.LoginSystem.LoginService;
 
 import SerializedObjects.CommandsEnum.CommandType;
 import SerializedObjects.UserObjects.Documento;
 import SerializedObjects.UserObjects.Utente;
+import SerializedObjects.coreObjects.Fattura;
 import SerializedObjects.coreObjects.Noleggio;
 import SerializedObjects.coreObjects.Sconto;
 import SerializedObjects.coreObjects.Veicolo;
@@ -130,16 +132,17 @@ public class CommandsEngine {
                 Sconto s = ScontiCore.getSconto(cod_sconto);
                 sendResponse(new Command(CommandType.SCONTO_RESPONSE, s));
                 break;
-                
+
             case EXIST_NOLEGGIO_REQUEST:
-                sendResponse(new Command(CommandType.EXIST_NOLEGGIO_RESPONSE,VeicoliCore.richiediNoleggio((Utente) cmd.getArg())));        
+                sendResponse(new Command(CommandType.EXIST_NOLEGGIO_RESPONSE, VeicoliCore.richiediNoleggio((Utente) cmd.getArg())));
                 break;
-                
+
             case NOLEGGIO_REQUEST:
                 Noleggio n = (Noleggio) cmd.getArg();
                 try {
                     if (VeicoliCore.noleggiaVeicolo(n)) {
                         sendResponse(new Command(CommandType.NOLEGGIO_RESPONSE, "OK"));
+                        VeicoliCore.updateVeicoli();
                     } else {
                         sendResponse(new Command(CommandType.NOLEGGIO_RESPONSE, "ERRORE GENERICO"));
                     }
@@ -147,7 +150,27 @@ public class CommandsEngine {
                     sendResponse(new Command(CommandType.NOLEGGIO_RESPONSE, ex.getMessage()));
                 }
                 break;
+            case TERMINA_NOLEGGIO_REQUEST:
+                Utente u = (Utente) cmd.getArg();
 
+                try {
+                    if (VeicoliCore.terminaNoleggio(u)) {
+                       sendResponse(new Command(CommandType.TERMINA_NOLEGGIO_RESPONSE, "OK"));
+                        VeicoliCore.updateVeicoli();
+                    } else {
+                        sendResponse(new Command(CommandType.TERMINA_NOLEGGIO_RESPONSE, "ERRORE GENERICO"));
+                    }
+                } catch (Exception ex) {
+                    sendResponse(new Command(CommandType.TERMINA_NOLEGGIO_RESPONSE, ex.getMessage()));
+                }
+                break;
+            case GET_FATTURA_REQUEST:
+                if(cmd.getArg() != null){
+                    Fattura f = DB.getFattura((Noleggio) cmd.getArg());
+                    sendResponse(new Command(CommandType.GET_FATTURA_RESPONSE, f));
+                }
+                break;
+                
             default:
                 System.out.println("Received an unknown command: " + cmd.toString());
 
