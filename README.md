@@ -22,4 +22,5 @@ Nel caso in cui si decida di utilizzare un nuovo database, è necessario cambiar
 
 # Execution
 Per eseguire il server, è necessario lanciare il comando: "java -jar <FileCompilato>.jar".
+
 Viene utilizzata la porta 9696 per la connessione.
