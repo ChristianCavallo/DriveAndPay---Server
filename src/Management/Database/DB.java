@@ -10,6 +10,7 @@ import SerializedObjects.UserObjects.InformazioniUtente;
 import SerializedObjects.UserObjects.Utente;
 import SerializedObjects.coreObjects.Fattura;
 import SerializedObjects.coreObjects.Noleggio;
+import SerializedObjects.coreObjects.Prenotazione;
 import SerializedObjects.coreObjects.Sconto;
 import SerializedObjects.coreObjects.Veicolo;
 import java.sql.Connection;
@@ -46,6 +47,7 @@ public class DB {
 
         Statement stmt = createDatabaseConnection().createStatement();
         ResultSet rs = stmt.executeQuery(qry);
+        stmt.closeOnCompletion();
         return rs;
     }
 
@@ -53,6 +55,7 @@ public class DB {
 
         Statement stmt = createDatabaseConnection().createStatement();
         int rs = stmt.executeUpdate(qry);
+        stmt.closeOnCompletion();
         return rs;
     }
 
@@ -95,15 +98,14 @@ public class DB {
         return false;
     }
 
-    public static Boolean terminaNoleggio(Noleggio n) {
+    public static Boolean prenotaVeicolo(Prenotazione p) {
         try {
             Connection conn = createDatabaseConnection();
             conn.setAutoCommit(false);
             Statement db = conn.createStatement();
 
             //Imposto il veicolo come non disponibile
-            SimpleDateFormat format = new SimpleDateFormat("dd/MM/yyyy hh:mm:ss");
-            String query = "UPDATE NOLEGGI SET FINE = '" + format.format(n.getFine()) + "' WHERE ID = " + n.getId();
+            String query = "UPDATE VEICOLI SET DISPONIBILE = 0 WHERE CODICE = " + p.getVeicolo().getCodice();
             int res;
             res = db.executeUpdate(query);
             if (res == 0) {
@@ -112,10 +114,10 @@ public class DB {
                 conn.close();
                 return false;
             }
-            System.out.println("Noleggio terminato");
+            System.out.println("Veicolo aggiornato a disponibile");
 
-            //Aggiorno il veicolo a disponibile
-            query = "UPDATE VEICOLI SET DISPONIBILE = 1 WHERE CODICE = " + n.getVeicoloCorrente().getCodice();
+            //Creo un nuovo noleggio
+            query = "INSERT INTO PRENOTAZIONI VALUES (" + p.toStringDB() + ")";
             res = db.executeUpdate(query);
             if (res == 0) {
                 conn.rollback();
@@ -123,10 +125,90 @@ public class DB {
                 conn.close();
                 return false;
             }
-            System.out.println("Veicolo aggiornato a non disponibile");
+
+            conn.commit();
+            System.out.println("Prenotazione inserita");
+            return true;
+
+        } catch (ClassNotFoundException | SQLException ex) {
+            System.out.println(ex.toString());
+
+            return false;
+        }
+    }
+
+    public static Prenotazione PrenotazioniAperte(Utente u) {
+        try {
+            String query = "SELECT * FROM PRENOTAZIONI P JOIN VEICOLI V ON P.VEICOLO = V.CODICE WHERE P.UTENTE = " + u.getId() + " AND P.FINE = ''";
+
+            ResultSet res = executeQuery(query);
+            Prenotazione p = null;
+            while (res.next()) {
+                p = new Prenotazione(res.getInt("ID"));
+                String c = res.getString("INIZIO");
+                SimpleDateFormat format = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+                p.setInizio(format.parse(c));
+                Veicolo v = new Veicolo(res.getInt("VEICOLO"));
+                p.setVeicolo(v);
+                p.setUtente(new Utente(res.getInt("UTENTE"), "", ""));
+            }
+
+            return p;
+
+        } catch (SQLException | ClassNotFoundException | ParseException ex) {
+            System.out.println(ex);
+        }
+
+        return null;
+    }
+
+    public static Fattura getFatturaByPrenotazione(Prenotazione p) {
+        String query = "SELECT * FROM FATTURE WHERE PRENOTAZIONE = " + p.getId();
+        Fattura f = null;
+        try {
+            ResultSet res = executeQuery(query);
+            while (res.next()) {
+                f = new Fattura(VeicoliCore.TARIFFA_PRENOTAZIONE);
+                f.setDurata(res.getDouble("DURATA"));
+            }
+        } catch (SQLException | ClassNotFoundException ex) {
+            System.out.println(ex);
+        }
+        return f;
+    }
+
+    public static Boolean terminaPrenotazione(Prenotazione p) {
+        try {
+            Connection conn = createDatabaseConnection();
+            conn.setAutoCommit(false);
+            Statement db = conn.createStatement();
+
+            //Imposto il veicolo come non disponibile
+            SimpleDateFormat format = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+            String query = "UPDATE PRENOTAZIONI SET FINE = '" + format.format(p.getFine()) + "' WHERE ID = " + p.getId();
+            int res;
+            res = db.executeUpdate(query);
+            if (res == 0) {
+                conn.rollback();
+                db.close();
+                conn.close();
+                return false;
+            }
+            System.out.println("Prenotazione terminata");
+
+            //Aggiorno il veicolo a disponibile
+            query = "UPDATE VEICOLI SET DISPONIBILE = 1 WHERE CODICE = " + p.getVeicolo().getCodice();
+            res = db.executeUpdate(query);
+            if (res == 0) {
+                conn.rollback();
+                db.close();
+                conn.close();
+                return false;
+            }
+            System.out.println("Veicolo aggiornato a disponibile");
 
             //Creo la fattura
-            query = "INSERT INTO FATTURE VALUES (" + n.getId() + ", " + n.getFatturaCorrente().getDurata() + ", " + n.getFatturaCorrente().getTotale() + ")";
+            query = "INSERT INTO FATTURE VALUES (null," + p.getId() + ", " + p.getFattura().getDurata() + ", " + p.getFattura().getTotale() + ")";
             res = db.executeUpdate(query);
             if (res == 0) {
                 conn.rollback();
@@ -147,18 +229,76 @@ public class DB {
         return false;
     }
 
-    public static Fattura getFattura(Noleggio n) {
+    public static Boolean terminaNoleggio(Noleggio n) {
+        try {
+            Connection conn = createDatabaseConnection();
+            conn.setAutoCommit(false);
+            Statement db = conn.createStatement();
+
+            //Imposto il veicolo come non disponibile
+            SimpleDateFormat format = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+            String query = "UPDATE NOLEGGI SET FINE = '" + format.format(n.getFine()) + "' WHERE ID = " + n.getId();
+            int res;
+            res = db.executeUpdate(query);
+            if (res == 0) {
+                conn.rollback();
+                db.close();
+                conn.close();
+                return false;
+            }
+            System.out.println("Noleggio terminato");
+
+            //Aggiorno il veicolo a disponibile
+            query = "UPDATE VEICOLI SET DISPONIBILE = 1 WHERE CODICE = " + n.getVeicoloCorrente().getCodice();
+            res = db.executeUpdate(query);
+            if (res == 0) {
+                conn.rollback();
+                db.close();
+                conn.close();
+                return false;
+            }
+            System.out.println("Veicolo aggiornato a disponibile");
+
+            //Creo la fattura
+            query = "INSERT INTO FATTURE VALUES (" + n.getId() + ", null," + n.getFatturaCorrente().getDurata() + ", " + n.getFatturaCorrente().getTotale() + ")";
+            res = db.executeUpdate(query);
+            if (res == 0) {
+                conn.rollback();
+                db.close();
+                conn.close();
+                return false;
+            }
+            System.out.println("Fattura creata.");
+
+            conn.commit();
+
+            db.close();
+            conn.close();
+            return true;
+        } catch (ClassNotFoundException | SQLException ex) {
+            System.out.println(ex.toString());
+        }
+        return false;
+    }
+
+    public static Fattura getFatturaByNoleggio(Noleggio n) {
         String query = "SELECT * FROM FATTURE WHERE NOLEGGIO = " + n.getId();
         Fattura f = null;
         try {
             ResultSet res = executeQuery(query);
             while (res.next()) {
-                f = new Fattura(VeicoliCore.TARIFFA);
+                f = new Fattura(VeicoliCore.TARIFFA_NOLEGGIO);
                 f.setDurata(res.getDouble("DURATA"));
-                if (n.getScontoCorrente() != null) {
-                    f.setPercentualeSconto(0);
-                } else {
-                    f.setPercentualeSconto(n.getScontoCorrente().getPerc_sconto());
+                
+                try {
+                    if (n.getScontoCorrente() != null) {
+                        f.setPercentualeSconto(0);
+                    } else {
+                        f.setPercentualeSconto(n.getScontoCorrente().getPerc_sconto());
+                    }
+
+                } catch (Exception ex) {
+                     f.setPercentualeSconto(0);
                 }
 
             }
@@ -170,17 +310,15 @@ public class DB {
 
     public static Noleggio NoleggiAperti(Utente u) {
         try {
-            String query = "SELECT * FROM NOLEGGI N JOIN SCONTI S ON N.SCONTO = S.CODICE WHERE N.UTENTE = " + u.getId() + " AND N.FINE = ''";
+            String query = "SELECT * FROM NOLEGGI N WHERE N.UTENTE = " + u.getId() + " AND N.FINE = ''";
 
             ResultSet res = executeQuery(query);
             Noleggio n = null;
+            String c = null;
             while (res.next()) {
                 n = new Noleggio(res.getInt("ID"));
-                String c = res.getString("SCONTO");
-                if (c != null) {
-                    Sconto s = new Sconto(c, res.getInt("PERCENTUALE"));
-                    n.setScontoCorrente(s);
-                }
+                c = res.getString("SCONTO");
+
                 Veicolo v = new Veicolo(res.getInt("VEICOLO"));
                 n.setVeicoloCorrente(v);
 
@@ -189,6 +327,15 @@ public class DB {
                     n.setInizio(format.parse(res.getString("INIZIO")));
                 } catch (ParseException ex) {
                     System.out.println("Ho parsato male la data.. strano");
+                }
+            }
+
+            if (c != null && n != null) {
+                query = "SELECT * FROM SCONTI WHERE CODICE = '" + c + "'";
+                res = executeQuery(query);
+                while (res.next()) {
+                    Sconto s = new Sconto(c, res.getInt("PERCENTUALE"));
+                    n.setScontoCorrente(s);
                 }
             }
 
@@ -259,7 +406,6 @@ public class DB {
 
             //Creo un nuovo noleggio
             query = "INSERT INTO NOLEGGI VALUES (" + n.toStringDB() + ")";
-            System.out.println(query);
             res = db.executeUpdate(query);
             if (res == 0) {
                 conn.rollback();
@@ -347,6 +493,85 @@ public class DB {
             System.out.println("Carta di credito inserita");
             conn.commit();
 
+            db.close();
+            conn.close();
+            return true;
+        } catch (ClassNotFoundException | SQLException ex) {
+            System.out.println(ex.toString());
+
+            return false;
+        }
+
+    }
+    
+    public static Boolean addUserToDB_Test(Utente u) {
+
+        try {
+            Connection conn = createDatabaseConnection();
+            conn.setAutoCommit(false);
+            Statement db = conn.createStatement();
+
+            //Inserimento nuovo utente
+            String query = "INSERT INTO UTENTI VALUES " + u.toStringDB() + "";
+
+            int res;
+            res = db.executeUpdate(query);
+            if (res == 0) {
+                conn.rollback();
+                db.close();
+                conn.close();
+                return false;
+            }
+            System.out.println("Utente inserito");
+            //Inserimento info utente
+            query = "INSERT INTO INFOUTENTI VALUES (" + u.getId() + ", " + u.getInfoUtente().toStringDB() + ")";
+            res = db.executeUpdate(query);
+
+            if (res == 0) {
+                conn.rollback();
+                db.close();
+                conn.close();
+                return false;
+            }
+            System.out.println("InformazioniUtente inserito");
+
+            //Inserimento documenti
+            query = "INSERT INTO DOCUMENTI VALUES (" + u.getId() + ", "
+                    + u.getInfoUtente().getCartaIdentita().toStringDB() + ")";
+            res = db.executeUpdate(query);
+            if (res == 0) {
+                conn.rollback();
+                db.close();
+                conn.close();
+                return false;
+            }
+            System.out.println("Carta d'identità inserita");
+
+            //Inserimento documenti
+            query = "INSERT INTO DOCUMENTI VALUES (" + u.getId() + ", "
+                    + u.getInfoUtente().getPatente().toStringDB() + ")";
+            res = db.executeUpdate(query);
+            if (res == 0) {
+                conn.rollback();
+                db.close();
+                conn.close();
+                return false;
+            }
+            System.out.println("Patente inserita");
+
+            //Inserimento carta di creito
+            query = "INSERT INTO CARTACREDITO VALUES (" + u.getId() + ", " + u.getInfoUtente().getCarta().toStringDB() + ")";
+            System.out.println(query);
+            res = db.executeUpdate(query);
+            if (res == 0) {
+                conn.rollback();
+                db.close();
+                conn.close();
+                return false;
+            }
+            System.out.println("Carta di credito inserita");
+            //conn.commit(); Metodo di test non usiamo il commit
+            conn.rollback();
             db.close();
             conn.close();
             return true;

@@ -17,6 +17,7 @@ import SerializedObjects.UserObjects.Documento;
 import SerializedObjects.UserObjects.Utente;
 import SerializedObjects.coreObjects.Fattura;
 import SerializedObjects.coreObjects.Noleggio;
+import SerializedObjects.coreObjects.Prenotazione;
 import SerializedObjects.coreObjects.Sconto;
 import SerializedObjects.coreObjects.Veicolo;
 import java.io.ByteArrayInputStream;
@@ -155,7 +156,7 @@ public class CommandsEngine {
 
                 try {
                     if (VeicoliCore.terminaNoleggio(u)) {
-                       sendResponse(new Command(CommandType.TERMINA_NOLEGGIO_RESPONSE, "OK"));
+                        sendResponse(new Command(CommandType.TERMINA_NOLEGGIO_RESPONSE, "OK"));
                         VeicoliCore.updateVeicoli();
                     } else {
                         sendResponse(new Command(CommandType.TERMINA_NOLEGGIO_RESPONSE, "ERRORE GENERICO"));
@@ -164,13 +165,52 @@ public class CommandsEngine {
                     sendResponse(new Command(CommandType.TERMINA_NOLEGGIO_RESPONSE, ex.getMessage()));
                 }
                 break;
-            case GET_FATTURA_REQUEST:
-                if(cmd.getArg() != null){
-                    Fattura f = DB.getFattura((Noleggio) cmd.getArg());
-                    sendResponse(new Command(CommandType.GET_FATTURA_RESPONSE, f));
+            case GET_FATTURA_NOLEGGIO_REQUEST:
+                if (cmd.getArg() != null) {                
+                    sendResponse(new Command(CommandType.GET_FATTURA_NOLEGGIO_RESPONSE, DB.getFatturaByNoleggio((Noleggio) cmd.getArg())));
                 }
                 break;
-                
+            case GET_FATTURA_PRENOTAZIONE_REQUEST:
+                if (cmd.getArg() != null) {                
+                    sendResponse(new Command(CommandType.GET_FATTURA_PRENOTAZIONE_RESPONSE, DB.getFatturaByPrenotazione((Prenotazione) cmd.getArg())));
+                }
+                break;
+            case EXIST_PRENOTAZIONE_REQUEST:
+                if (cmd.getArg() != null) {
+                    Utente u2 = (Utente) cmd.getArg();
+                    sendResponse(new Command(CommandType.EXIST_PRENOTAZIONE_RESPONSE, DB.PrenotazioniAperte(u2)));
+                }
+                break;
+            case PRENOTAZIONE_REQUEST:
+                if (cmd.getArg() != null) {
+                    Prenotazione p = (Prenotazione) cmd.getArg();
+                    try {
+                        if (VeicoliCore.prenotaVeicolo(p)) {
+                            sendResponse(new Command(CommandType.PRENOTAZIONE_RESPONSE, "OK"));
+                            VeicoliCore.updateVeicoli();
+                        } else {
+                            sendResponse(new Command(CommandType.PRENOTAZIONE_RESPONSE, "ERRORE GENERICO"));
+                        }
+                    } catch (Exception ex) {
+                        sendResponse(new Command(CommandType.PRENOTAZIONE_RESPONSE, ex.getMessage()));
+                    }
+                    break;
+                }
+            case TERMINA_PRENOTAZIONE_REQUEST:
+                if (cmd.getArg() != null) {
+                    Utente u3 = (Utente) cmd.getArg();
+                    try {
+                        if (VeicoliCore.terminaPrenotazione(u3)) {
+                            sendResponse(new Command(CommandType.TERMINA_PRENOTAZIONE_RESPONSE, "OK"));
+                            VeicoliCore.updateVeicoli();
+                        } else {
+                            sendResponse(new Command(CommandType.TERMINA_PRENOTAZIONE_RESPONSE, "ERRORE GENERICO"));
+                        }
+                    } catch (Exception ex) {
+                        sendResponse(new Command(CommandType.TERMINA_PRENOTAZIONE_RESPONSE, ex.getMessage()));
+                    }
+                }
+                break;
             default:
                 System.out.println("Received an unknown command: " + cmd.toString());
 
