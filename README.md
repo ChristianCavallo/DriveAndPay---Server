@@ -18,7 +18,9 @@ Per utilizzarlo è necessario:
 - Creare una nuova cartella chiamata "Database", nella stessa cartella dove risiede il file jar compilato del server
 - decomprimere il file rar nella cartella appena creata.
 
-Nel caso in cui si decida di utilizzare un nuovo database, è necessario cambiare l'url di connessione nella classe "DB.java". Inoltre lanciando il server con il parametro "first", verranno inseriti alcuni veicoli e sconti di default nel db.
+Nel caso in cui si decida di utilizzare un nuovo database, è necessario cambiare l'url di connessione nella classe "DB.java". Dal punto di vista strutturale, è possibile utilizzare il file "Dump_Database.sql" contenuto nella repository per creare le tabelle e i vincoli strutturali necessari per il corretto funzionamento del database.
+
+Inoltre lanciando il server con il parametro "first", verranno inseriti alcuni veicoli e sconti di default nel db.
 
 # Execution
 Per eseguire il server, è necessario lanciare il comando: "java -jar <FileCompilato>.jar".
